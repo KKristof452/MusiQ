@@ -1,0 +1,1 @@
+scp -rp ./ pi@babyberry.duckdns.org:~/

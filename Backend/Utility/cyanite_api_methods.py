@@ -1,5 +1,8 @@
+import logging
 from fastapi import UploadFile
 import requests
+
+from Utility.cyanite_api_queries import CyaniteQueries
 
 
 class CyaniteMethods():
@@ -10,10 +13,9 @@ class CyaniteMethods():
         response = await CyaniteMethods.__file_upload_request()
         file_upload_request = response.get("data").get("fileUploadRequest")
         id = file_upload_request.get("id")
-        print(f"id: {id}\n")
+        logging.debug(f"id: {id}\n")
         upload_url = file_upload_request.get("uploadUrl")
-        upload_url = "asdfasdf"
-        print(f"upload_url: {upload_url}\n")
+        logging.debug(f"upload_url: {upload_url}\n")
 
         file = {"file": (title, data)}
         header = {"Content-Type": "audio/mpeg"}
@@ -26,45 +28,18 @@ class CyaniteMethods():
         return id
     
     async def __file_upload_request():
-        query = """
-            mutation FileUploadRequestMutation {
-                fileUploadRequest {
-                    # the id will be used for creating the library track from the file upload
-                    id
-                    # the uploadUrl specifies where we need to upload the file to
-                    uploadUrl
-                }
-            }
-        """
-
+        query = CyaniteQueries.file_upload_request
         variables = {}
 
         response = await CyaniteMethods.__request(query, variables)
         return response.json()
     
     async def __library_track_creation(upload_id: str, title: str):
-        query = """
-            mutation LibraryTrackCreateMutation($input: LibraryTrackCreateInput!) {
-                libraryTrackCreate(input: $input) {
-                    __typename
-                    ... on LibraryTrackCreateSuccess {
-                        createdLibraryTrack {
-                            id
-                        }
-                    }
-                    ... on LibraryTrackCreateError {
-                        code
-                        message
-                    }
-                }
-            }
-        """
-
+        query = CyaniteQueries.library_track_creation
         variables = {"input": {"uploadId": upload_id, "title": title}}
-
+        
         response = await CyaniteMethods.__request(query, variables)
         return response.json()
-
 
     async def __request(query, variables):
         return requests.post(url=CyaniteMethods.url, headers={"Authorization": CyaniteMethods.access_token}, json={"query": query, "variables": variables})

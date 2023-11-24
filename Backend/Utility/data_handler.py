@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from pathlib import Path
@@ -7,28 +8,20 @@ from pydub import AudioSegment
 import numpy as np
 
 
-logging.basicConfig(filename=Path("logs/file_handler.log"), 
-                    filemode="w", 
-                    format="%(asctime)s - %(levelname)s - %(message)s",
-                    level=logging.DEBUG
-                    )
-
-
-DATA_DIR = Path("./Data/Audio")
+AUDIO_DIR = Path("./Data/Audio")
 
 
 async def file_management(file: UploadFile):
     filename = filename_determination(file.filename)
     print(f"generated filename: {filename}")
     try:
-        async with aiofiles.open(Path(DATA_DIR, filename), "wb") as out_file:
+        async with aiofiles.open(Path(AUDIO_DIR, filename), "wb") as out_file:
             data = await file.read()
             await out_file.write(data)
         return filename, data
     except Exception as ex:
         logging.error(f"file_management() - {ex}\n")
         return "", b"\x00"
-
 
 
 def filename_determination(original_filename: str):
@@ -46,12 +39,9 @@ def filename_determination(original_filename: str):
 
 
 def check_filename_existence(filename: str):
-    for _, _, filenames in os.walk(DATA_DIR):
-        print(f"Existing files: {filenames}")
+    for _, _, filenames in os.walk(AUDIO_DIR):
         if filename in filenames:
-            print("File already exists!!!!")
             return True
-    print("Original filename OK")
     return False
 
 
@@ -78,4 +68,3 @@ def compare_audio_waveform(audio1: str | UploadFile, audio2: str | UploadFile):
         return True
     else:
         return False
-
