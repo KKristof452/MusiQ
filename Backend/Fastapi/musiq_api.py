@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from Fastapi.song import Song, SongManager
 
 from Utility.cyanite_api_methods import CyaniteMethods
-from Utility.data_handler import file_management, AUDIO_DIR
+from Utility.file_handler import file_management, AUDIO_DIR
 
 
 logging.basicConfig(filename=Path("logs/MusiQ.log"), 
