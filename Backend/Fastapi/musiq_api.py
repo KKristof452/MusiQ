@@ -53,8 +53,7 @@ async def add_to_queue(uploaded_file: UploadFile):
     title = filename.removesuffix(".mp3")
     id = await CyaniteMethods.file_upload(uploaded_file, title, data)
 
-    filepath = Path(AUDIO_DIR, filename)
-    new_song = Song(id, title, str(filepath))
+    new_song = Song(id, title)
     song_manager.add(new_song)
 
     logging.info(f"New song added: {filename}")
@@ -65,7 +64,6 @@ async def add_to_queue(uploaded_file: UploadFile):
 @app.delete("/remove_from_queue/{id}")
 async def remove_from_queue(id: str):
     song_manager.remove(id)
-    
     return song_manager.queue
 
 

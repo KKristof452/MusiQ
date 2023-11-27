@@ -13,7 +13,7 @@ AUDIO_DIR = Path("./Data/Audio")
 
 async def file_management(file: UploadFile):
     filename = filename_determination(file.filename)
-    print(f"generated filename: {filename}")
+    logging.info(f"generated filename: {filename}")
     try:
         async with aiofiles.open(Path(AUDIO_DIR, filename), "wb") as out_file:
             data = await file.read()
