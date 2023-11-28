@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+
+
 class CyaniteQueries():
     file_upload_request = """
         mutation FileUploadRequestMutation {
@@ -27,6 +31,11 @@ class CyaniteQueries():
         }
     """
 
-    
 
-
+def verify_signature(secret_key, payload, signature):
+    # Create a new HMAC object using the secret key and the payload
+    hmac_obj = hmac.new(secret_key.encode(), payload, hashlib.sha512)
+    # Generate the HMAC signature
+    generated_signature = hmac_obj.hexdigest()
+    # Compare the generated signature with the received signature
+    return hmac.compare_digest(generated_signature, signature)

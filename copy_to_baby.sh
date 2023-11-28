@@ -1,1 +1,1 @@
-scp -rp ./ pi@babyberry.duckdns.org:~/
+scp -rp ../MusiQ pi@babyberry.duckdns.org:~/

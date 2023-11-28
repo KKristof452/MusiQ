@@ -9,7 +9,7 @@ OBJ_DIR = Path("./Data/Objects")
 
 
 class Song():
-    def __init__(self, id: str, title: str, genre: str = "", bpm: int = 0, mood: str = "") -> None:
+    def __init__(self, id: str, title: str, genre: str = "", bpm: int = 0, mood: str = "", audiopath: str = "", jsonpath: str = "") -> None:
         self.id = id
         self.title = title
         self.audiopath = os.path.join(AUDIO_DIR, f"{title}.mp3")
