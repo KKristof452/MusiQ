@@ -9,14 +9,27 @@ OBJ_DIR = Path("./Data/Objects")
 
 
 class Song():
-    def __init__(self, id: str, title: str, genre: str = "", bpm: int = 0, mood: str = "", audiopath: str = "", jsonpath: str = "") -> None:
+    def __init__(
+        self, 
+        id: str, 
+        title: str, 
+        genre: list = [], 
+        bpm: int = 0, 
+        mood: list = [], 
+        voice_gender: str = "",
+        key: str = "",
+        audiopath: str = "", 
+        jsonpath: str = ""
+    ) -> None:
         self.id = id
         self.title = title
-        self.audiopath = os.path.join(AUDIO_DIR, f"{title}.mp3")
-        self.jsonpath = os.path.join(OBJ_DIR, f"{title}.json")
         self.genre = genre
         self.bpm = bpm
         self.mood = mood
+        self.voice_gender = voice_gender
+        self.key = key
+        self.audiopath = os.path.join(AUDIO_DIR, f"{title}.mp3")
+        self.jsonpath = os.path.join(OBJ_DIR, f"{title}.json")
 
 
 class SongManager():
@@ -30,34 +43,65 @@ class SongManager():
 
     def __init__(self):
         self.__queue: list[Song] = []
-
-        for dirpath, _, filenames in os.walk(OBJ_DIR):
-            for filename in filenames:
-                if not filename.endswith(".json"):
-                    continue
-                with open(os.path.join(dirpath, filename), "r") as json_file:
-                    loaded_song = Song(**json.load(json_file))
-                    self.__queue.append(loaded_song)
+        deserialization(self.__queue)
 
     def add(self, song: Song):
         self.__queue.append(song)
-
-        with open(song.jsonpath, "w") as json_file:
-            json.dump(song.__dict__, json_file)
-
+        serialization(song)
         return self.__queue
 
     def remove(self, id: str):
+        song_to_remove = self.song_by_id(id)
+        if not song_to_remove:
+            return False, self.__queue
+        self.__queue.remove(song_to_remove)
+        os.unlink(song_to_remove.audiopath)
+        os.unlink(song_to_remove.jsonpath)
+        return True, self.__queue
+    
+    def song_by_id(self, id: str):
         for song in self.__queue:
             if song.id == id:
-                self.__queue.remove(song)
-                os.unlink(song.audiopath)
-                os.unlink(song.jsonpath)
-                return True, self.__queue
-             
-        return False, self.__queue
+                return song
+        return None
+    
+    def reorder_queue(self, criteria):
+        # Using a custom sort function
+        self.queue.sort(key=lambda song: self._calculate_match_score(song, criteria))
+    
+    def _calculate_match_score(self, song, criteria):
+        def check_value(attribute, value):
+            if isinstance(attribute, list):
+                print(f"attr: {attribute}, type: {type(attribute)}")
+                print(value in attribute)
+                return value in attribute
+            elif isinstance(attribute, str | int):
+                print(f"attr: {attribute}, type: {type(attribute)}")
+                print(attribute == value)
+                return attribute == value
+            
+        score = 0
+        for key, value in criteria.items():
+            attribute = getattr(song, key)
+            if check_value(attribute, value):
+                score += 1
+        return -score  # Negative score for descending sort
 
     @property
     def queue(self):
         return self.__queue
     
+
+def serialization(song):
+    with open(song.jsonpath, "w") as json_file:
+        json.dump(song.__dict__, json_file)
+
+
+def deserialization(queue):
+    for dirpath, _, filenames in os.walk(OBJ_DIR):
+        for filename in filenames:
+            if not filename.endswith(".json"):
+                continue
+            with open(os.path.join(dirpath, filename), "r") as json_file:
+                loaded_song = Song(**json.load(json_file))
+                queue.append(loaded_song)

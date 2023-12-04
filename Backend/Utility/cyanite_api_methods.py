@@ -2,7 +2,7 @@ import logging
 from fastapi import UploadFile
 import requests
 
-from Utility.cyanite_operations import CyaniteQueries
+from Utility.cyanite_queries import CyaniteQueries
 
 
 class CyaniteMethods():
@@ -31,11 +31,17 @@ class CyaniteMethods():
 
         return id
     
-    async def __file_upload_request():
-        query = CyaniteQueries.file_upload_request
-        variables = {}
+    async def library_track_query(id: str):
+        query = CyaniteQueries.library_track_query
+        variables = {"libraryTrackId": id}
 
         response = await CyaniteMethods.__request(query, variables)
+        return response.json()
+    
+    async def __file_upload_request():
+        query = CyaniteQueries.file_upload_request
+
+        response = await CyaniteMethods.__request(query)
         return response.json()
     
     async def __library_track_creation(upload_id: str, title: str):
@@ -45,5 +51,5 @@ class CyaniteMethods():
         response = await CyaniteMethods.__request(query, variables)
         return response.json()
 
-    async def __request(query, variables):
+    async def __request(query, variables={}):
         return requests.post(url=CyaniteMethods.url, headers={"Authorization": CyaniteMethods.access_token}, json={"query": query, "variables": variables})
