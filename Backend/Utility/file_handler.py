@@ -1,11 +1,10 @@
-import json
 import logging
 import os
 from pathlib import Path
 import aiofiles
+
 from fastapi import UploadFile
-from pydub import AudioSegment
-import numpy as np
+from ACRCloud.acrcloud_client import ACRCloudMethods
 
 
 AUDIO_DIR = Path("./Data/Audio")
@@ -43,28 +42,3 @@ def check_filename_existence(filename: str):
         if filename in filenames:
             return True
     return False
-
-
-def __read_audio(file_name):
-    audio = AudioSegment.from_mp3(file_name)
-    # Normalize to the same frame rate and channels for consistent comparison
-    audio = audio.set_frame_rate(44100).set_channels(1)
-    return np.array(audio.get_array_of_samples())
-
-
-def compare_audio_waveform(audio1: str | UploadFile, audio2: str | UploadFile):
-    # Read the audio files
-    audio1 = __read_audio(audio1)
-    audio2 = __read_audio(audio2)
-
-    # Check if the length of th two audio files are equal
-    if len(audio1) != len(audio2):
-        return False
-
-    # Compare the waveforms
-    difference = np.sum((audio1 - audio2) ** 2)
-
-    if difference == 0:
-        return True
-    else:
-        return False

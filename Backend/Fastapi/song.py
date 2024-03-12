@@ -12,24 +12,30 @@ class Song():
     def __init__(
         self, 
         id: str, 
-        title: str, 
+        filename: str, 
+        title: str = "",
+        artists: list = [],
         genre: list = [], 
         bpm: int = 0, 
         mood: list = [], 
         voice_gender: str = "",
         key: str = "",
+        cyanite_id: str = "",
         audiopath: str = "", 
         jsonpath: str = ""
     ) -> None:
         self.id = id
+        self.filename = filename
         self.title = title
+        self.artists = artists
         self.genre = genre
         self.bpm = bpm
         self.mood = mood
         self.voice_gender = voice_gender
         self.key = key
-        self.audiopath = os.path.join(AUDIO_DIR, f"{title}.mp3")
-        self.jsonpath = os.path.join(OBJ_DIR, f"{title}.json")
+        self.cyanite_id = cyanite_id
+        self.audiopath = os.path.join(AUDIO_DIR, f"{filename}.mp3")
+        self.jsonpath = os.path.join(OBJ_DIR, f"{filename}.json")
 
 
 class SongManager():
