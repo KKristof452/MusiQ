@@ -1,2 +1,3 @@
 ssh -t pi@babyberry.duckdns.org "rm -rf ~/MusiQ"
-scp -rp ../MusiQ pi@babyberry.duckdns.org:~/
+ssh -t pi@babyberry.duckdns.org "mkdir MusiQ"
+scp -rp ./Backend pi@babyberry.duckdns.org:~/MusiQ/

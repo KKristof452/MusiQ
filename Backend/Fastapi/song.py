@@ -22,7 +22,8 @@ class Song():
         key: str = "",
         cyanite_id: str = "",
         audiopath: str = "", 
-        jsonpath: str = ""
+        jsonpath: str = "",
+        fixed_position: bool = False
     ) -> None:
         self.id = id
         self.filename = filename
@@ -36,6 +37,7 @@ class Song():
         self.cyanite_id = cyanite_id
         self.audiopath = os.path.join(AUDIO_DIR, f"{filename}.mp3")
         self.jsonpath = os.path.join(OBJ_DIR, f"{filename}.json")
+        self.fixed_position = False
 
 
 class SongManager():
@@ -53,6 +55,7 @@ class SongManager():
 
     def add(self, song: Song):
         self.__queue.append(song)
+        # TODO reorder queue by priorities
         serialization(song)
         return self.__queue
 
@@ -69,11 +72,35 @@ class SongManager():
         for song in self.__queue:
             if song.id == id:
                 return song
-        return None
+    
+    def song_by_cyanite_id(self, cyanite_id: str):
+        for song in self.__queue:
+            if song.cyanite_id == cyanite_id:
+                return song
+            
+    def check_song_existence(self, title, artists):
+        for song in self.__queue:
+            if (song.title, song.artists) == (title, artists):
+                return song.__dict__
+        return
     
     def reorder_queue(self, criteria):
-        # Using a custom sort function
+        custom_positions = []
+        for idx, song in enumerate(self.queue):
+            if song.fixed_position:
+                custom_positions.append({idx: song})
+        
+        custom_positions.reverse()
+        for song_position in custom_positions:
+            for key, _ in song_position.items():
+                self.queue.pop(key)
+
         self.queue.sort(key=lambda song: self._calculate_match_score(song, criteria))
+
+        custom_positions.reverse()
+        for song_position in custom_positions:
+            for key, value in song_position.items():
+                self.queue.insert(key, value)
     
     def _calculate_match_score(self, song, criteria):
         def check_value(attribute, value):

@@ -24,7 +24,7 @@ async def process_analysis_result(resource: dict, song_manager: SongManager):
     logging.info(f"{response.get('data').get('libraryTrack').get('title')} analysis:")
     result = response.get("data").get("libraryTrack").get("audioAnalysisV6").get("result")
 
-    song_by_id = song_manager.song_by_id(id)
+    song_by_id = song_manager.song_by_cyanite_id(id)
 
     song_by_id.voice_gender = result.get("predominantVoiceGender")
     logging.info(f"voice_gender: {song_by_id.voice_gender} - {type(song_by_id.voice_gender)}")

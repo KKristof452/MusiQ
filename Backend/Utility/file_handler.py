@@ -10,14 +10,14 @@ from ACRCloud.acrcloud_client import ACRCloudMethods
 AUDIO_DIR = Path("./Data/Audio")
 
 
-async def file_management(file: UploadFile):
+async def file_management(file: UploadFile, file_data):
     filename = filename_determination(file.filename)
     logging.info(f"generated filename: {filename}")
     try:
         async with aiofiles.open(Path(AUDIO_DIR, filename), "wb") as out_file:
-            data = await file.read()
-            await out_file.write(data)
-        return filename, data
+            await out_file.write(file_data)
+        logging.info(f"length of data: {len(file_data)}")
+        return filename, file_data
     except Exception as ex:
         logging.error(f"file_management() - {ex}\n")
         return "", b"\x00"

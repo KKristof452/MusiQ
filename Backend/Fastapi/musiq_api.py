@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 import json
 import logging
 import os
@@ -8,12 +9,16 @@ from uuid import uuid4
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status, UploadFile
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
+from passlib.context import CryptContext
+from ACRCloud.acrcloud_client import ACRCloudMethods
+from jose import JWTError, jwt
 
 from Cyanite.cyanite_utility import process_analysis_result, verify_signature
 from Fastapi.song import Song, SongManager
 from Cyanite.cyanite_client import CyaniteMethods
 from Utility.file_handler import file_management
-from ACRCloud.acrcloud_client import ACRCloudMethods
+from Fastapi.musiq_auth import User, get_current_admin_user, authenticate_admin_user, \
+    admin_users, create_access_token, Token, ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 logging.basicConfig(filename=Path("logs/MusiQ.log"), 
@@ -21,11 +26,6 @@ logging.basicConfig(filename=Path("logs/MusiQ.log"),
                     format="%(asctime)s - %(funcName)s - %(levelname)s - %(message)s",
                     level=logging.INFO
                     )
-
-
-song_manager = SongManager()
-
-app = FastAPI()
 
 
 class SongModel(BaseModel):
@@ -38,6 +38,25 @@ class SongModel(BaseModel):
     key: str = ""
 
 
+song_manager = SongManager()
+
+app = FastAPI()
+
+
+@app.post("/token")
+async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+    user = authenticate_admin_user(admin_users, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
+    return Token(access_token=access_token, token_type="bearer")
+
+
 @app.get("/queue/list", response_model=list[SongModel])
 async def show_queue():
     return song_manager.queue
@@ -48,28 +67,45 @@ async def add_to_queue(uploaded_file: UploadFile):
     if not uploaded_file.filename.endswith(".mp3"):
         return {"Result": "Invalid file format"}
     
-    filtered_metadata = ACRCloudMethods.get_song_metadata(await uploaded_file.read())
+    file_data = await uploaded_file.read()
+    filtered_metadata = ACRCloudMethods.get_song_metadata(file_data)
     logging.info(f"filtered_metadata:\n{filtered_metadata}\n")
-    
-    filename, data = await file_management(uploaded_file)
+    filename, data = await file_management(uploaded_file, file_data)
     if not filename:
         return {"Result": "Fail"}
-    title = filename.removesuffix(".mp3")
-    unique_id = str(uuid4())
-    # id = await CyaniteMethods.file_upload(uploaded_file, title, data)
+    filename = filename.removesuffix(".mp3")
 
-    new_song = Song(unique_id, title)
+    unique_id = str(uuid4())
+    metadata = filtered_metadata[0]
+    title, artists = metadata.get("title"), metadata.get("artists")
+
+    existing = song_manager.check_song_existence(title, artists)
+    if not existing:
+        cyanite_id = await CyaniteMethods.file_upload(uploaded_file, title, data)
+        logging.info("Cyanite analysation started!")
+        new_song = Song(unique_id, filename, title=title, artists=artists, cyanite_id=cyanite_id)
+    else:
+        logging.info("Song already in queue, skipping analysation!")
+        new_song = Song(
+            unique_id, filename, title=title, artists=artists, 
+            voice_gender=existing.get("voice_gender"), genre=existing.get("genre"),
+            mood=existing.get("mood"), bpm=existing.get("bpm"), key=existing.get("key")
+        )
+
     song_manager.add(new_song)
 
-    logging.info(f"New song added: {filename}")
+    logging.info(f"New song added: {filename}, length of queue: {len(song_manager.queue)}")
     
     return {"Result": "Success", "Data": new_song, "Filtered metadata": filtered_metadata}
 
 
 @app.delete("/queue/remove/{id}")
-async def remove_from_queue(id: str):
+async def remove_from_queue(id: str, current_user: Annotated[User, Depends(get_current_admin_user)]):
+    all_ids = [song.id for song in song_manager.queue]
+    if id not in all_ids:
+        return {"Result": "Fail", "Message": f"Song with id '{id}' not found!"}
     song_manager.remove(id)
-    return song_manager.queue
+    return {"Result": "Success", "Queue": song_manager.queue}
 
 
 @app.post("/settings/{id}/metadata")
