@@ -5,8 +5,9 @@ import os
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
+from secrets import token_bytes
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, status, UploadFile
+from fastapi import Body, Depends, FastAPI, Form, HTTPException, Query, Request, status, UploadFile
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from passlib.context import CryptContext
@@ -17,8 +18,8 @@ from Cyanite.cyanite_utility import process_analysis_result, verify_signature
 from Fastapi.song import Song, SongManager
 from Cyanite.cyanite_client import CyaniteMethods
 from Utility.file_handler import file_management
-from Fastapi.musiq_auth import User, get_current_admin_user, authenticate_admin_user, \
-    admin_users, create_access_token, Token, ACCESS_TOKEN_EXPIRE_MINUTES
+from Fastapi.musiq_auth import User, get_current_admin_user, get_current_user, authenticate_admin_user, \
+    admin_users, standard_users, create_access_token, Token, ADMIN_ACCESS_TOKEN_EXPIRE_MINUTES, STANDARD_ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 logging.basicConfig(filename=Path("logs/MusiQ.log"), 
@@ -43,8 +44,8 @@ song_manager = SongManager()
 app = FastAPI()
 
 
-@app.post("/token")
-async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+@app.post("/admin_token")
+async def login_for_admin(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
     user = authenticate_admin_user(admin_users, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -52,8 +53,21 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=ADMIN_ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
+    return Token(access_token=access_token, token_type="bearer")
+
+
+@app.post("/standard_token")
+async def one_time_login(nickname: Annotated[str, Form()]):
+    if nickname in admin_users or nickname in standard_users:
+        raise HTTPException(
+            status_code=400,
+            detail="Nickname already in use"
+        )
+    access_token_expires = timedelta(minutes=STANDARD_ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(data={"sub": nickname}, expires_delta=access_token_expires)
+    standard_users[nickname] = {"username": nickname}
     return Token(access_token=access_token, token_type="bearer")
 
 
@@ -180,3 +194,14 @@ async def cyanite_event(request: Request):
     logging.info("Processing done")
 
     return {"Result": "Success"}
+
+
+@app.get("/whoami")
+async def who_am_i(current_user: Annotated[User, Depends(get_current_user)]):
+    return {"current_user": current_user}
+
+app.get("is_admin")
+async def is_admin(current_user: Annotated[User, Depends(get_current_admin_user)]):
+    if current_user:
+        return {"is_admin": True}
+    return {"is_admin": False}

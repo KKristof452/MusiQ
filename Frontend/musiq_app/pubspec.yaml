@@ -7,10 +7,13 @@ environment:
   sdk: '>=3.0.2 <4.0.0'
 
 dependencies:
+  dio: ^5.4.2+1
   equatable: ^2.0.5
+  file_picker: ^8.0.0+1
   flutter:
     sdk: flutter
   flutter_bloc: ^8.1.5
+  get_it: ^7.6.8
 
 dev_dependencies:
   flutter_test:
