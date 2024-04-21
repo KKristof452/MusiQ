@@ -13,6 +13,7 @@ class Song():
         self, 
         id: str, 
         filename: str, 
+        user: str,
         title: str = "",
         artists: list = [],
         genre: list = [], 
@@ -27,6 +28,7 @@ class Song():
     ) -> None:
         self.id = id
         self.filename = filename
+        self.user = user
         self.title = title
         self.artists = artists
         self.genre = genre

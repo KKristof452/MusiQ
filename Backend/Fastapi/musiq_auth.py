@@ -14,11 +14,6 @@ ALGORITHM = "HS256"
 ADMIN_ACCESS_TOKEN_EXPIRE_MINUTES = 30
 STANDARD_ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-admin_credentials = {
-    "username": os.getenv("ADMIN_USER", "admin"),
-    "password": os.getenv("ADMIN_PASS", "MusiQ")
-}
-
 
 class Token(BaseModel):
     access_token: str

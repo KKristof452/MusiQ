@@ -8,11 +8,9 @@ from uuid import uuid4
 from secrets import token_bytes
 
 from fastapi import Body, Depends, FastAPI, Form, HTTPException, Query, Request, status, UploadFile
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
-from passlib.context import CryptContext
 from ACRCloud.acrcloud_client import ACRCloudMethods
-from jose import JWTError, jwt
 
 from Cyanite.cyanite_utility import process_analysis_result, verify_signature
 from Fastapi.song import Song, SongManager
@@ -20,6 +18,7 @@ from Cyanite.cyanite_client import CyaniteMethods
 from Utility.file_handler import file_management
 from Fastapi.musiq_auth import User, get_current_admin_user, get_current_user, authenticate_admin_user, \
     admin_users, standard_users, create_access_token, Token, ADMIN_ACCESS_TOKEN_EXPIRE_MINUTES, STANDARD_ACCESS_TOKEN_EXPIRE_MINUTES
+from fastapi.middleware.cors import CORSMiddleware
 
 
 logging.basicConfig(filename=Path("logs/MusiQ.log"), 
@@ -31,7 +30,9 @@ logging.basicConfig(filename=Path("logs/MusiQ.log"),
 
 class SongModel(BaseModel):
     id: str
+    user: str
     title: str
+    artists: list = []
     genre: list = []
     bpm: int = 0
     mood: list = []
@@ -42,6 +43,18 @@ class SongModel(BaseModel):
 song_manager = SongManager()
 
 app = FastAPI()
+
+origins = [
+    "http://localhost:8080"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.post("/admin_token")
@@ -68,6 +81,7 @@ async def one_time_login(nickname: Annotated[str, Form()]):
     access_token_expires = timedelta(minutes=STANDARD_ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": nickname}, expires_delta=access_token_expires)
     standard_users[nickname] = {"username": nickname}
+    print(standard_users)
     return Token(access_token=access_token, token_type="bearer")
 
 
@@ -77,7 +91,7 @@ async def show_queue():
 
 
 @app.post("/queue/add")
-async def add_to_queue(uploaded_file: UploadFile):
+async def add_to_queue(uploaded_file: UploadFile, current_user: Annotated[User, Depends(get_current_user)]):
     if not uploaded_file.filename.endswith(".mp3"):
         return {"Result": "Invalid file format"}
     
@@ -97,11 +111,11 @@ async def add_to_queue(uploaded_file: UploadFile):
     if not existing:
         cyanite_id = await CyaniteMethods.file_upload(uploaded_file, title, data)
         logging.info("Cyanite analysation started!")
-        new_song = Song(unique_id, filename, title=title, artists=artists, cyanite_id=cyanite_id)
+        new_song = Song(id=unique_id, filename=filename, user=current_user.username, title=title, artists=artists, cyanite_id=cyanite_id)
     else:
         logging.info("Song already in queue, skipping analysation!")
         new_song = Song(
-            unique_id, filename, title=title, artists=artists, 
+            id=unique_id, filename=filename, user=current_user.username, title=title, artists=artists, 
             voice_gender=existing.get("voice_gender"), genre=existing.get("genre"),
             mood=existing.get("mood"), bpm=existing.get("bpm"), key=existing.get("key")
         )
@@ -122,7 +136,7 @@ async def remove_from_queue(id: str, current_user: Annotated[User, Depends(get_c
     return {"Result": "Success", "Queue": song_manager.queue}
 
 
-@app.post("/settings/{id}/metadata")
+@app.post("/queue/settings/{id}/metadata")
 async def set_metadata(id: str, metadata: Annotated[str, Query()] = '{"title": "", "artists": []}'):
     try:
         metadata = json.loads(metadata)
@@ -142,7 +156,7 @@ async def set_metadata(id: str, metadata: Annotated[str, Query()] = '{"title": "
     return {"Result": "Fail", "Title": title, "Artists": artists}
 
 
-@app.post("/settings/priorities")
+@app.post("/queue/settings/priorities")
 def prioritize_queue(priority: Annotated[str, Query()] = "{}"):
     try:
         priority = json.loads(priority)
@@ -196,12 +210,14 @@ async def cyanite_event(request: Request):
     return {"Result": "Success"}
 
 
-@app.get("/whoami")
-async def who_am_i(current_user: Annotated[User, Depends(get_current_user)]):
-    return {"current_user": current_user}
+@app.post("/queue/logout")
+async def standard_logout(current_user: Annotated[User, Depends(get_current_user)]):
+    if current_user.is_admin:
+        return {"Result": "Success", "User": current_user}
+    del standard_users[current_user.username]
+    return {"Result": "Success", "User": current_user}
 
-app.get("is_admin")
-async def is_admin(current_user: Annotated[User, Depends(get_current_admin_user)]):
-    if current_user:
-        return {"is_admin": True}
-    return {"is_admin": False}
+
+@app.get("/test")
+async def who_am_i(current_user: Annotated[User, Depends(get_current_user)]):
+    return {"Current_user": current_user}
