@@ -39,7 +39,8 @@ class _QueuePageBlocState extends State<QueuePageBloc> {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.message)));
           }
           else if (state is QueueUploadSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.response[0]['title'])));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.metadata[0]['title'])));
+            queue = state.queue;
           }
           else if (state is QueueExit) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${state.loggedOutUser} logged out.')));

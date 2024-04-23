@@ -1,4 +1,5 @@
 
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -43,7 +44,8 @@ class _AdminQueuePageBlocState extends State<AdminQueuePageBloc> {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.message)));
           }
           else if (state is QueueUploadSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.response[0]['title'])));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.metadata[0]['title'])));
+            queue = state.queue;
           }
           else if (state is QueueExit) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${state.loggedOutUser} logged out.')));
@@ -78,12 +80,23 @@ class _AdminQueuePageBlocState extends State<AdminQueuePageBloc> {
             ),
             body: state is QueueLoading ? const Center(
               child: CircularProgressIndicator()
-            ) : ListView.builder(
+            ) : ReorderableListView.builder(
               padding: const EdgeInsets.all(25.0),
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (oldIndex < newIndex) newIndex -= 1;
+                  print('oldIndex: $oldIndex - newIndex: $newIndex');
+                  var song = queue.removeAt(oldIndex);
+                  var songId = song.id;
+                  queue.insert(newIndex, song);
+                  context.read<QueueBloc>().add(QueueReorder(songId, oldIndex, newIndex));
+                });
+              },
               itemCount: queue.length,
               itemBuilder: (context, index) {
                 final item = queue[index];
                 return GestureDetector(
+                  key: ValueKey(queue[index]),
                   onTapDown: (TapDownDetails details) {
                     final tapPosition = details.globalPosition;
 
@@ -103,35 +116,41 @@ class _AdminQueuePageBlocState extends State<AdminQueuePageBloc> {
                       position: menuRect,
                       constraints: const BoxConstraints(minWidth: 0, maxWidth: double.infinity, minHeight: 0, maxHeight: double.infinity),
                       items: <PopupMenuEntry<SampleItem>>[
-                        const PopupMenuItem<SampleItem>(
-                          value: SampleItem.itemOne,
-                          child: Center(child: Icon(Icons.upload)),
-                        ),
-                        const PopupMenuItem<SampleItem>(
-                          value: SampleItem.itemTwo,
-                          child: Center(child: Icon(Icons.download)),
-                        ),
-                        const PopupMenuItem<SampleItem>(
+                        PopupMenuItem<SampleItem>(
                           value: SampleItem.itemThree,
-                          child: Center(child: Icon(Icons.delete)),
+                          child: const Center(child: Icon(Icons.delete)),
+                          onTap: () {
+                            var itemId = queue[index].id;
+                            context.read<QueueBloc>().add(QueueRemoveItem(itemId));
+                          },
                         ),
                       ]
                     );
                   },
                   child: Card(
                     elevation: 5,
-                    child: ListTile( 
+                    child: ListTile(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)
                       ),
                       tileColor: Colors.amber[200],
-                      title: Center(child: Text('${item.title} - (${item.artists})')),
-                      subtitle: Center(child: Text(item.user)),
-                      
+                      title: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('${item.title} - (${item.artists})'),
+                        ],
+                      ),
+                      subtitle: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(item.user),
+                        ],
+                      ),
+                        
                     ),
                   ),
                 );
-              },
+              }
             ),
             floatingActionButton: Padding(
               padding: const EdgeInsets.fromLTRB(0, 0, 25, 25),

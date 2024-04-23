@@ -11,10 +11,12 @@ class QueueBloc extends Bloc<QueueEvents, QueueStates> {
     on<QueueAdd>(onQueueAdd);
     on<QueueUpdate>(onQueueUpdate);
     on<QueueLogout>(onQueueLogout);
+    on<QueueRemoveItem>(onQueueRemoveItem);
+    on<QueueReorder>(onQueueReorder);
   }
 
   void onQueueAdd(QueueAdd event, Emitter<QueueStates> emit) async {
-    if (state is QueueLoading || state is QueueUploading) return;
+    if (state is QueueUploading) return;
     emit(QueueUploading());
 
     print('trying to upload audio');
@@ -27,15 +29,14 @@ class QueueBloc extends Bloc<QueueEvents, QueueStates> {
       var response = await GetIt.I<Dio>().post('/queue/add', data: formData);
 
       print(response.data);
-
-      emit(QueueUploadSuccess(response.data['Filtered metadata']));
+      List<QueueListItem> queue = generateQueueListItems(response.data['Queue']);
+      emit(QueueUploadSuccess(response.data['Filtered metadata'], queue));
 
     } on DioException catch (e) {
       if (e.response != null) {
         print(e.response);
         emit(QueueUploadFail(e.response?.data['message']));
-      }
-      else {
+      } else {
         print('Something went wrong...');
         emit(QueueUploadFail('Something went wrong...'));
       }
@@ -43,28 +44,20 @@ class QueueBloc extends Bloc<QueueEvents, QueueStates> {
   }
 
   void onQueueUpdate(QueueUpdate event, Emitter<QueueStates> emit) async {
-    if (state is QueueLoading || state is QueueUploading) return;
+    if (state is QueueLoading) return;
     emit(QueueLoading());
 
     try {
       var response = await GetIt.I<Dio>().get('/queue/list');
 
-      List<QueueListItem> queueListItems = [];
-      for (final song in response.data) {
-        var title = song['title'];
-        var artists = song['artists'].join(' & ');
-        var user = song['user'];
-
-        queueListItems.add(QueueListItem(title: title, artists: artists, user: user));
-      }
+      List<QueueListItem> queueListItems = generateQueueListItems(response.data);
 
       emit(QueueUpdateSuccess(queueListItems));
 
     } on DioException catch (e) {
       if (e.response != null) {
         emit(QueueUpdateFail(e.response?.data['message']));
-      }
-      else {
+      } else {
         emit(QueueUpdateFail('Something went wrong...'));
       }
     } catch (e) {
@@ -73,8 +66,8 @@ class QueueBloc extends Bloc<QueueEvents, QueueStates> {
   }
 
   void onQueueLogout(QueueLogout event, Emitter<QueueStates> emit) async {
-    if (state is QueueLoading || state is QueueUploading) return;
-    print('trying to logout 2');
+    if (state is QueueUploading) return;
+
     try {
       var response = await GetIt.I<Dio>().post('/queue/logout');
       if (response.data['Result'] == 'Success') {
@@ -86,8 +79,7 @@ class QueueBloc extends Bloc<QueueEvents, QueueStates> {
       if (e.response != null) {
         //emit(QueueUpdateFail(e.response?.data['message']));
         print('ERR: ${e.response?.data['message']}');
-      }
-      else {
+      } else {
         //emit(QueueUpdateFail('Something went wrong...'));
         print('Something went wrong...\n${e.toString()}}');
       }
@@ -95,4 +87,59 @@ class QueueBloc extends Bloc<QueueEvents, QueueStates> {
       print('ERROR: ${e.toString()}');
     }
   }
+
+  void onQueueRemoveItem(QueueRemoveItem event, Emitter<QueueStates> emit) async {
+    if (state is QueueLoading) return;
+    emit(QueueLoading());
+
+    try {
+      var response = await GetIt.I<Dio>().delete('/queue/${event.itemId}/remove');
+      List<QueueListItem> queue = generateQueueListItems(response.data);
+      emit(QueueUpdateSuccess(queue));
+    } on DioException catch (e) {
+      if (e.response != null) {
+        emit(QueueUpdateFail(e.response?.data['message']));
+        print('ERR: ${e.response?.data['message']}');
+      } else {
+        emit(QueueUpdateFail('Something went wrong...'));
+        print('Something went wrong...\n${e.toString()}}');
+      }
+    } catch (e) {
+      print('[onQueueRemoveItem] ${e.toString()}');
+    }
+  }
+
+  void onQueueReorder(QueueReorder event, Emitter<QueueStates> emit) async {
+    if (state is QueueLoading || state is QueueActionPending) return;
+    emit(QueueActionPending());
+
+    try {
+      final Map<String, int> queryParameters = {
+        'old_index': event.oldIndex,
+        'new_index': event.newIndex
+      };
+      var response = await GetIt.I<Dio>().patch('/queue/${event.id}/move', queryParameters: queryParameters);
+      List<QueueListItem> queue = generateQueueListItems(response.data);
+      emit(QueueUpdateSuccess(queue));
+    } on DioException catch (e) {
+      if (e.response != null) {
+        emit(QueueUpdateFail(e.response?.data['message']));
+        print('ERR: ${e.response?.data['message']}');
+      } else {
+        emit(QueueUpdateFail('Something went wrong...'));
+        print('Something went wrong...\n${e.toString()}}');
+      }
+    } catch (e) {
+      print('[onQueueReorder] ${e.toString()}');
+    }
+  }
 }
+
+
+List<QueueListItem> generateQueueListItems(List<dynamic> queue) {
+    List<QueueListItem> queueListItems = [];
+    for (final song in queue) {
+      queueListItems.add(QueueListItem.fromMap(song));
+    }
+    return queueListItems;
+  }

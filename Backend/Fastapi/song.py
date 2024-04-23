@@ -88,21 +88,21 @@ class SongManager():
     
     def reorder_queue(self, criteria):
         custom_positions = []
-        for idx, song in enumerate(self.queue):
+        for idx, song in enumerate(self.__queue):
             if song.fixed_position:
                 custom_positions.append({idx: song})
         
         custom_positions.reverse()
         for song_position in custom_positions:
             for key, _ in song_position.items():
-                self.queue.pop(key)
+                self.__queue.pop(key)
 
-        self.queue.sort(key=lambda song: self._calculate_match_score(song, criteria))
+        self.__queue.sort(key=lambda song: self._calculate_match_score(song, criteria))
 
         custom_positions.reverse()
         for song_position in custom_positions:
             for key, value in song_position.items():
-                self.queue.insert(key, value)
+                self.__queue.insert(key, value)
     
     def _calculate_match_score(self, song, criteria):
         def check_value(attribute, value):
@@ -122,9 +122,14 @@ class SongManager():
                 score += 1
         return -score  # Negative score for descending sort
 
+    def move_song(self, old_index: int, new_index: int):
+        song = self.__queue.pop(old_index)
+        song.fixed_position = True
+        self.__queue.insert(new_index, song)
+
     @property
     def queue(self):
-        return self.__queue
+        return self.__queue.copy()
     
 
 def serialization(song):

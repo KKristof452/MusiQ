@@ -1,11 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
-from secrets import token_bytes
 
 from fastapi import Body, Depends, FastAPI, Form, HTTPException, Query, Request, status, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
@@ -100,7 +98,7 @@ async def add_to_queue(uploaded_file: UploadFile, current_user: Annotated[User, 
     logging.info(f"filtered_metadata:\n{filtered_metadata}\n")
     filename, data = await file_management(uploaded_file, file_data)
     if not filename:
-        return {"Result": "Fail"}
+        raise HTTPException(status_code=415, detail="The uploaded file is not mp3.")
     filename = filename.removesuffix(".mp3")
 
     unique_id = str(uuid4())
@@ -124,16 +122,24 @@ async def add_to_queue(uploaded_file: UploadFile, current_user: Annotated[User, 
 
     logging.info(f"New song added: {filename}, length of queue: {len(song_manager.queue)}")
     
-    return {"Result": "Success", "Data": new_song, "Filtered metadata": filtered_metadata}
+    return {"Data": new_song, "Filtered metadata": filtered_metadata, "Queue": song_manager.queue}
 
 
-@app.delete("/queue/remove/{id}")
+@app.delete("/queue/{id}/remove")
 async def remove_from_queue(id: str, current_user: Annotated[User, Depends(get_current_admin_user)]):
     all_ids = [song.id for song in song_manager.queue]
     if id not in all_ids:
-        return {"Result": "Fail", "Message": f"Song with id '{id}' not found!"}
+        raise HTTPException(status_code=409, detail=f"Song with id '{id}' not found!")
     song_manager.remove(id)
-    return {"Result": "Success", "Queue": song_manager.queue}
+    return song_manager.queue
+
+
+@app.patch("/queue/{id}/move")
+async def move(id: str, old_index: int, new_index: int, current_user: Annotated[User, Depends(get_current_admin_user)]):
+    if id != song_manager.queue[old_index].id:
+        raise HTTPException(status_code=409, detail="Song ID and index do not match.")
+    song_manager.move_song(old_index, new_index)
+    return song_manager.queue
 
 
 @app.post("/queue/settings/{id}/metadata")
