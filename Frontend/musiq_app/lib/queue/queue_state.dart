@@ -89,6 +89,30 @@ class QueueActionFail extends QueueStates {
 }
 
 
+class QueueSetPreferenceSuccess extends QueueStates {
+
+  @override
+  List<Object> get props => [];
+}
+
+
+class QueuePreferencesLoading extends QueueStates {
+
+  @override
+  List<Object> get props => [];
+}
+
+
+class QueuePreferencesLoaded extends QueueStates {
+  final Map<String, dynamic> preferences;
+
+  QueuePreferencesLoaded(this.preferences);
+
+  @override
+  List<Object> get props => [preferences];
+}
+
+
 class QueueExit extends QueueStates {
   final String loggedOutUser;
 
@@ -104,13 +128,36 @@ class QueueListItem {
   final String artists;
   final String user;
   final String id;
+  final String genre;
+  final String bpm;
+  final String mood;
+  final String voiceGender;
+  final String key;
+  final bool fixedPosition;
 
-  QueueListItem({required this.title, required this.artists, required this.user, required this.id});
+  QueueListItem({
+    required this.title, 
+    required this.artists, 
+    required this.user, 
+    required this.id, 
+    required this.genre, 
+    required this.bpm,
+    required this.mood,
+    required this.voiceGender,
+    required this.key,
+    required this.fixedPosition
+  });
 
   factory QueueListItem.fromMap(Map<String, dynamic> data) => QueueListItem(
     title: data['title'],
     artists: data['artists'].join(' & '),
     user: data['user'],
-    id: data['id']
+    id: data['id'],
+    genre: data['genre'].join(', '),
+    bpm: data['bpm'].toString(),
+    mood: data['mood'].join(', '),
+    voiceGender: data['voice_gender'],
+    key: data['key'],
+    fixedPosition: data['fixed_position']
   );
 }

@@ -27,3 +27,12 @@ class QueueReorder extends QueueEvents {
 
   QueueReorder(this.id, this.oldIndex, this.newIndex);
 }
+
+class QueueSetPreferences extends QueueEvents {
+  final Map<String, dynamic> preferences;
+
+  QueueSetPreferences(this.preferences);
+}
+
+
+class QueueLoadPreferences extends QueueEvents {}

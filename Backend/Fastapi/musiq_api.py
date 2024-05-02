@@ -5,13 +5,13 @@ from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import Body, Depends, FastAPI, Form, HTTPException, Query, Request, status, UploadFile
+from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request, status, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from ACRCloud.acrcloud_client import ACRCloudMethods
 
 from Cyanite.cyanite_utility import process_analysis_result, verify_signature
-from Fastapi.song import Song, SongManager
+from Fastapi.song import Song, SongManager, Preferences
 from Cyanite.cyanite_client import CyaniteMethods
 from Utility.file_handler import file_management
 from Fastapi.musiq_auth import User, get_current_admin_user, get_current_user, authenticate_admin_user, \
@@ -36,6 +36,17 @@ class SongModel(BaseModel):
     mood: list = []
     voice_gender: str = ""
     key: str = ""
+    fixed_position: bool
+
+
+class PreferencesModel(BaseModel):
+    artists: list = []
+    genre: list = []
+    min_bpm: int
+    max_bpm: int
+    mood: list = []
+    voice_gender: list = []
+    key: list = []
 
 
 song_manager = SongManager()
@@ -162,23 +173,16 @@ async def set_metadata(id: str, metadata: Annotated[str, Query()] = '{"title": "
     return {"Result": "Fail", "Title": title, "Artists": artists}
 
 
-@app.post("/queue/settings/priorities")
-def prioritize_queue(priority: Annotated[str, Query()] = "{}"):
-    try:
-        priority = json.loads(priority)
-        if type(priority) is not dict:
-            raise HTTPException(status_code=400, detail="Query must be a valid dictionary.")
-    except json.JSONDecodeError as ex:
-        return {"Result": "Fail", "Priority": {}, "Message": f"'{ex.doc}' is not a valid JSON document."}
-    except TypeError as ex:
-        return {"Result": "Fail", "Priority": {}, "Message": f"{ex}"}
-    
-    if not priority:
-        return {"Result": "Fail", "Priority": {}, "Message": "No priority was set."}
+@app.post("/queue/settings/preferences", response_model=PreferencesModel)
+def set_preferences(preferences: PreferencesModel):
+    song_manager.preferences = Preferences(**preferences.model_dump())
+    song_manager.reorder_queue()
+    return preferences.model_dump()
 
-    song_manager.reorder_queue(priority)
-    
-    return {"Result": "Success", "Priority": priority, "Message": "Priority was set."}
+
+@app.get("/queue/settings/preferences", response_model=PreferencesModel)
+def get_preferences():
+    return song_manager.preferences
 
 
 @app.post("/cyanite_event")

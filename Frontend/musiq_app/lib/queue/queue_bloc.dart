@@ -13,6 +13,8 @@ class QueueBloc extends Bloc<QueueEvents, QueueStates> {
     on<QueueLogout>(onQueueLogout);
     on<QueueRemoveItem>(onQueueRemoveItem);
     on<QueueReorder>(onQueueReorder);
+    on<QueueSetPreferences>(onQueueSetPreferences);
+    on<QueueLoadPreferences>(onQueueLoadPreferences);
   }
 
   void onQueueAdd(QueueAdd event, Emitter<QueueStates> emit) async {
@@ -132,6 +134,54 @@ class QueueBloc extends Bloc<QueueEvents, QueueStates> {
     } catch (e) {
       print('[onQueueReorder] ${e.toString()}');
     }
+  }
+
+  void onQueueSetPreferences(QueueSetPreferences event, Emitter<QueueStates> emit) async {
+    if (state is QueuePreferencesLoading) {
+      return;
+    }
+    emit(QueuePreferencesLoading());
+
+    try {
+      var response = await GetIt.I<Dio>().post('/queue/settings/preferences', data: event.preferences);
+
+    } on DioException catch (e) {
+      if (e.response != null) {
+        //emit(QueueUpdateFail(e.response?.data['message']));
+        print('ERR: ${e.response?.data}');
+      } else {
+        //emit(QueueUpdateFail('Something went wrong...'));
+        print('Something went wrong...\n${e.toString()}}');
+      }
+    } catch (e) {
+      print('[onQueueReorder] ${e.toString()}');
+    }
+    
+  }
+
+  void onQueueLoadPreferences(QueueLoadPreferences event, Emitter<QueueStates> emit) async {
+    if (state is QueuePreferencesLoading) {
+      return;
+    }
+    emit(QueuePreferencesLoading());
+
+    try {
+      var response = await GetIt.I<Dio>().get('/queue/settings/preferences');
+      print(response.data);
+      emit(QueuePreferencesLoaded(response.data));
+
+    } on DioException catch (e) {
+      if (e.response != null) {
+        //emit(QueueUpdateFail(e.response?.data['message']));
+        print('ERR: ${e.response?.data}');
+      } else {
+        //emit(QueueUpdateFail('Something went wrong...'));
+        print('Something went wrong...\n${e.toString()}}');
+      }
+    } catch (e) {
+      print('[onQueueReorder] ${e.toString()}');
+    }
+
   }
 }
 
